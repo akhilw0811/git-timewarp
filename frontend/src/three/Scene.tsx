@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
-import { OrbitControls, Instances, Instance } from "@react-three/drei";
+import { OrbitControls, Instances, Instance, Text } from "@react-three/drei";
 import * as THREE from "three";
 
 interface FileSnapshot {
@@ -58,24 +58,29 @@ export default function Scene({ files, onFileClick }: SceneProps) {
     const directories = Array.from(directoryMap.keys());
     const maxChurn = Math.max(...files.map((f) => f.churn), 1);
 
-    directories.forEach((dirName, dirIndex) => {
-      const dirFiles = directoryMap.get(dirName)!;
+    // Force spread across entire viewport
+    const totalFiles = files.length;
+    const screenWidth = 60; // Very wide spread
+    const screenHeight = 50; // Very tall spread
 
-      dirFiles.forEach((file, fileIndex) => {
-        const x = (dirIndex - directories.length / 2) * 3; // Directory spacing
-        const y = fileIndex * 1.2; // File spacing within directory
-        const z = 0;
+    files.forEach((file, fileIndex) => {
+      // Use a spiral pattern to ensure full coverage
+      const spiralAngle = (fileIndex / totalFiles) * 8 * Math.PI; // Multiple rotations
+      const spiralRadius = 5 + (fileIndex / totalFiles) * 25; // Growing radius
+      
+      const x = Math.cos(spiralAngle) * spiralRadius + (Math.random() - 0.5) * 8;
+      const y = Math.sin(spiralAngle) * spiralRadius + (Math.random() - 0.5) * 8;
+      const z = (Math.random() - 0.5) * 15; // More depth variation
 
-        const churnFactor = Math.min(file.churn / maxChurn, 1);
-        const color = interpolateColor("#87cefa", "#ff0000", churnFactor);
-        const emissiveColor = file.hotspot_score > 0.8 ? "hotpink" : null;
+      const churnFactor = Math.min(file.churn / maxChurn, 1);
+      const color = interpolateColor("#87cefa", "#ff0000", churnFactor);
+      const emissiveColor = file.hotspot_score > 0.8 ? "hotpink" : null;
 
-        positions.push({
-          position: [x, y, z],
-          color,
-          emissiveColor,
-          file,
-        });
+      positions.push({
+        position: [x, y, z],
+        color,
+        emissiveColor,
+        file,
       });
     });
 
@@ -93,12 +98,25 @@ export default function Scene({ files, onFileClick }: SceneProps) {
       <ambientLight intensity={0.4} />
       <pointLight position={[10, 10, 10]} intensity={1} />
 
+      {/* Title */}
+      <Text
+        position={[0, 25, 0]}
+        fontSize={2}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+      >
+        Git Repository Files
+      </Text>
+
       <OrbitControls
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
         minDistance={5}
         maxDistance={50}
+        target={[0, 0, 0]}
+        maxPolarAngle={Math.PI / 2}
       />
 
       <group ref={groupRef}>
@@ -108,11 +126,11 @@ export default function Scene({ files, onFileClick }: SceneProps) {
             position={item.position}
             onClick={() => onFileClick(item.file.path)}
           >
-            <boxGeometry args={[0.8, 0.8, 0.8]} />
+            <boxGeometry args={[3, 3, 3]} />
             <meshStandardMaterial
               color={item.color}
               emissive={item.emissiveColor || "#000000"}
-              emissiveIntensity={item.emissiveColor ? 0.3 : 0}
+              emissiveIntensity={item.emissiveColor ? 0.5 : 0}
             />
           </mesh>
         ))}

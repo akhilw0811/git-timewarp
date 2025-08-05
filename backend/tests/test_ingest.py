@@ -46,6 +46,13 @@ def test_ingest_repository(tmp_path):
             assert "Initial commit" in commit_messages
             assert "Update foo.txt" in commit_messages
 
+            # Verify hotspot scores are between 0 and 1 (real ML predictions)
+            for snapshot in snapshots:
+                assert 0 <= snapshot.hotspot_score <= 1, f"Hotspot score {snapshot.hotspot_score} not in [0,1]"
+            
+            # Assert at least one snapshot has a valid hotspot score
+            assert any(0 <= snapshot.hotspot_score <= 1 for snapshot in snapshots), "No valid hotspot scores found"
+
         finally:
             session.close()
     finally:

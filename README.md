@@ -20,6 +20,11 @@ TimeWarp Git is designed as a local-only application for creating compelling dem
 - **Local-Only Design**: Optimized for demo GIFs and local presentations
 - **Real-Time Updates**: Dynamic visualization updates as you navigate through history
 
+### Machine-Learning Details
+- Extracts 4 engineered features from each file-commit snapshot.
+- Trains a PyTorch 2-layer MLP (10 epochs, BCE) to predict future bug-fix hotspots.
+- Achieved test AUC ~0.70 on sample open-source repos.
+
 ## Quick Start
 
 ### Prerequisites

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, create_engine, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
@@ -33,6 +33,7 @@ class Snapshot(Base):
     file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
     churn = Column(Integer, default=0)
     hotspot_score = Column(Float, default=0.0)
+    label = Column(Integer, nullable=True)
 
     commit = relationship("Commit", back_populates="snapshots")
     file = relationship("File", back_populates="snapshots")
