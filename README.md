@@ -1,36 +1,37 @@
 # TimeWarp Git
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18.2.0-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.3.0-EE4C2C?style=for-the-badge&logo=pytorch)](https://pytorch.org/)
-[![Three.js](https://img.shields.io/badge/Three.js-0.158.0-000000?style=for-the-badge&logo=three.js)](https://threejs.org/)
-
-TimeWarp Git is an interactive 3-D visualization of a Git repository's history, built with FastAPI, PostgreSQL, PyTorch (stub hotspot model), and React + Three.js. This innovative tool transforms the traditional linear view of Git history into an immersive three-dimensional experience, allowing developers to explore their codebase evolution through time and space.
+TimeWarp Git is an interactive 3D visualization of a Git repository's history, built with FastAPI, SQLite, PyTorch, and React + Three.js. This innovative tool transforms the traditional linear view of Git history into an immersive three-dimensional experience, allowing developers to explore their codebase evolution through time and space.
 
 The visualization features a dynamic timeline slider that reveals commit evolution as you navigate through the repository's history. Each file is represented as a cube in 3D space, with size and color determined by code churn metrics. Cubes glow with special effects when their hotspot score exceeds 0.8, highlighting areas of high activity or potential technical debt. The interactive interface allows users to click on any cube to view detailed Monaco diff views, providing instant access to the specific changes that occurred in that file.
 
-TimeWarp Git is designed as a local-only application for creating compelling demo GIFs and presentations. The stack combines the performance of FastAPI for backend services, PostgreSQL for data persistence, PyTorch for machine learning-based hotspot detection, and React with Three.js for the immersive 3D frontend experience. This architecture enables real-time visualization of complex Git histories while maintaining the flexibility to work with any local repository.
+The stack combines the performance of FastAPI for backend services, SQLite for data persistence, PyTorch for machine learning-based hotspot detection, and React with Three.js for the immersive 3D frontend experience. This architecture enables real-time visualization of complex Git histories while maintaining the flexibility to work with any local repository.
 
 ## Key Features
 
 - **Timeline Slider**: Interactive slider reveals commit evolution through time
 - **3D Cube Visualization**: Files represented as cubes sized and colored by churn metrics
-- **Hotspot Detection**: Cubes glow when hotspot_score > 0.8, highlighting high-activity areas
+- **Real Hotspot Detection**: PyTorch-based ML model predicts future bug-fix hotspots
 - **Monaco Diff Integration**: Click any cube to view detailed code differences
 - **Local-Only Design**: Optimized for demo GIFs and local presentations
 - **Real-Time Updates**: Dynamic visualization updates as you navigate through history
+- **Full-Screen 3D Layout**: Spiral distribution ensures optimal viewport utilization
 
-### Machine-Learning Details
-- Extracts 4 engineered features from each file-commit snapshot.
-- Trains a PyTorch 2-layer MLP (10 epochs, BCE) to predict future bug-fix hotspots.
-- Achieved test AUC ~0.70 on sample open-source repos.
+### Machine Learning Details
+- **Real PyTorch Model**: 2-layer MLP with ReLU activation and dropout
+- **Feature Engineering**: Extracts 4 engineered features from each file-commit snapshot:
+  - Code churn (lines added/removed)
+  - File age (commits since creation)
+  - Author count (number of contributors)
+  - Recent activity (changes in last 5 commits)
+- **Training Pipeline**: Complete training script with data preprocessing and model persistence
+- **Performance**: Achieved test AUC ~0.70 on sample open-source repositories
 
 ## Quick Start
 
 ### Prerequisites
 - Python 3.8+
 - Node.js 16+
-- pnpm (or npm)
+- npm (or pnpm)
 
 ### Backend Setup
 ```bash
@@ -50,10 +51,10 @@ python -m uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
 ```bash
 # Install dependencies
 cd frontend
-pnpm install
+npm install
 
 # Start development server
-pnpm dev
+npm run dev
 ```
 
 ### Ingest Repository
@@ -63,26 +64,59 @@ cd backend
 python cli.py --repo /path/to/your/repo --db-url sqlite:///timewarp.db
 ```
 
-Visit `http://localhost:5173` to see the TimeWarp Git visualization!
+Visit `http://localhost:5173` (or `http://localhost:5174` if 5173 is in use) to see the TimeWarp Git visualization!
 
-## Demo
+## Architecture
 
-![TimeWarp Git Demo](assets/demo.gif)
+### Backend (FastAPI)
+- **API Endpoints**: `/timeline`, `/snapshot/{commit_id}`, `/diff/{commit_id}/{path}`
+- **Database**: SQLite with SQLAlchemy ORM
+- **ML Pipeline**: PyTorch-based hotspot detection model
+- **CORS**: Configured for local development
 
-*Interactive 3D visualization of Git repository evolution with timeline navigation and hotspot detection.*
+### Frontend (React + Three.js)
+- **3D Visualization**: Three.js with React Three Fiber
+- **Timeline Controls**: Interactive slider and hotspot toggle
+- **Diff Viewer**: Monaco Editor integration for code differences
+- **Responsive Design**: Full-screen 3D layout with spiral distribution
 
-## Installation
+### Machine Learning
+- **Model**: `backend/ml/real_hotspot.py` - PyTorch MLP
+- **Training**: `backend/ml/train_hotspot.py` - Complete training pipeline
+- **Features**: `backend/ml/feature_utils.py` - Feature extraction utilities
+- **Weights**: `backend/ml/hotspot_model.pt` - Pre-trained model
 
-*Installation steps will be added here.*
+## Development
 
-## Usage
+### Project Structure
+```
+git-timewarp/
+├── backend/
+│   ├── api/           # FastAPI application
+│   ├── ml/            # Machine learning models
+│   ├── models.py      # SQLAlchemy models
+│   ├── cli.py         # Repository ingestion CLI
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── three/     # Three.js components
+│   │   ├── components/ # React components
+│   │   └── hooks/     # Custom React hooks
+│   └── package.json
+└── README.md
+```
 
-*Usage instructions will be added here.*
+### Database Schema
+- **commits**: Git commit metadata
+- **files**: Repository file paths
+- **snapshots**: File state at each commit (churn, hotspot_score, label)
 
-## Contributing
+### API Endpoints
+- `GET /timeline` - Get all commits ordered by timestamp
+- `GET /snapshot/{commit_id}` - Get file snapshots for a commit
+- `GET /diff/{commit_id}/{path}` - Get file diff for a specific commit and path
 
-*Contribution guidelines will be added here.*
 
 ## License
 
-*License information will be added here.* 
+This project is licensed under the MIT License - see the LICENSE file for details. 
