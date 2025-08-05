@@ -1,42 +1,48 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-from datetime import datetime
+from sqlalchemy.orm import relationship, sessionmaker
 
 Base = declarative_base()
 
-class Repository(Base):
-    __tablename__ = 'repositories'
-    
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
-    path = Column(String(500), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    commits = relationship("Commit", back_populates="repository")
 
 class Commit(Base):
-    __tablename__ = 'commits'
-    
-    id = Column(Integer, primary_key=True)
-    hash = Column(String(40), nullable=False, unique=True)
-    author = Column(String(255), nullable=False)
-    message = Column(Text, nullable=False)
-    timestamp = Column(DateTime, nullable=False)
-    repository_id = Column(Integer, ForeignKey('repositories.id'))
-    
-    repository = relationship("Repository", back_populates="commits")
-    file_changes = relationship("FileChange", back_populates="commit")
+    __tablename__ = "commits"
 
-class FileChange(Base):
-    __tablename__ = 'file_changes'
-    
+    id = Column(String, primary_key=True)
+    timestamp = Column(Float, nullable=False)
+    author = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+
+    snapshots = relationship("Snapshot", back_populates="commit")
+
+
+class File(Base):
+    __tablename__ = "files"
+
     id = Column(Integer, primary_key=True)
-    file_path = Column(String(500), nullable=False)
-    lines_added = Column(Integer, default=0)
-    lines_deleted = Column(Integer, default=0)
-    churn_score = Column(Float, default=0.0)
+    path = Column(String, unique=True, nullable=False)
+
+    snapshots = relationship("Snapshot", back_populates="file")
+
+
+class Snapshot(Base):
+    __tablename__ = "snapshots"
+
+    id = Column(Integer, primary_key=True)
+    commit_id = Column(String, ForeignKey("commits.id"), nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
+    churn = Column(Integer, default=0)
     hotspot_score = Column(Float, default=0.0)
-    commit_id = Column(Integer, ForeignKey('commits.id'))
-    
-    commit = relationship("Commit", back_populates="file_changes") 
+
+    commit = relationship("Commit", back_populates="snapshots")
+    file = relationship("File", back_populates="snapshots")
+
+
+def get_engine(db_url="sqlite:///timewarp.db"):
+    return create_engine(db_url)
+
+
+def SessionLocal(db_url="sqlite:///timewarp.db"):
+    engine = get_engine(db_url)
+    Base.metadata.create_all(engine)
+    return sessionmaker(bind=engine)()

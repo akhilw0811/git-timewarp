@@ -1,19 +1,107 @@
-import React from 'react'
-import Editor from '@monaco-editor/react'
+import React, { useState, useEffect } from "react";
+import { DiffEditor } from "@monaco-editor/react";
+import axios from "axios";
 
 interface DiffModalProps {
-  filePath: string
-  onClose: () => void
+  commitId: string;
+  filePath: string;
+  onClose: () => void;
 }
 
-export default function DiffModal({ filePath, onClose }: DiffModalProps) {
+interface DiffData {
+  before: string;
+  after: string;
+}
+
+export default function DiffModal({
+  commitId,
+  filePath,
+  onClose,
+}: DiffModalProps) {
+  const [diffData, setDiffData] = useState<DiffData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Handle ESC key press
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  // Fetch diff data
+  useEffect(() => {
+    const fetchDiff = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await axios.get(
+          `http://127.0.0.1:8000/diff/${commitId}/${filePath}`,
+        );
+        setDiffData(response.data);
+      } catch (err) {
+        setError("Failed to fetch diff data");
+        console.error("Error fetching diff:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDiff();
+  }, [commitId, filePath]);
+
+  // Handle background click to close
+  const handleBackgroundClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  if (loading) {
+    return (
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        onClick={handleBackgroundClick}
+      >
+        <div className="bg-gray-900 rounded-lg p-8">
+          <div className="text-white">Loading diff...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        onClick={handleBackgroundClick}
+      >
+        <div className="bg-gray-900 rounded-lg p-8">
+          <div className="text-red-500 mb-4">Error: {error}</div>
+          <button
+            onClick={onClose}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={handleBackgroundClick}
+    >
       <div className="bg-gray-900 rounded-lg w-11/12 h-5/6 flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <h2 className="text-lg font-semibold text-white">
-            {filePath}
-          </h2>
+          <h2 className="text-lg font-semibold text-white">{filePath}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white text-2xl"
@@ -21,22 +109,27 @@ export default function DiffModal({ filePath, onClose }: DiffModalProps) {
             ×
           </button>
         </div>
-        
+
         <div className="flex-1 p-4">
-          <Editor
+          <DiffEditor
             height="100%"
-            defaultLanguage="typescript"
+            language="typescript"
             theme="vs-dark"
-            value={`// Diff view for ${filePath}\n// This would show the actual diff content\n\nfunction example() {\n  console.log("File changes would appear here");\n}`}
+            original={diffData?.before || ""}
+            modified={diffData?.after || ""}
             options={{
               readOnly: true,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               fontSize: 14,
+              wordWrap: "on",
+              lineNumbers: "on",
+              folding: true,
+              renderWhitespace: "selection",
             }}
           />
         </div>
       </div>
     </div>
-  )
-} 
+  );
+}

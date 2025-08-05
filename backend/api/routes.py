@@ -21,6 +21,7 @@ engine = create_engine("sqlite:///timewarp.db")
 Base.metadata.create_all(engine)
 SessionLocal = sessionmaker(bind=engine)
 
+
 @app.get("/api/repositories")
 async def get_repositories():
     db = SessionLocal()
@@ -28,12 +29,22 @@ async def get_repositories():
     db.close()
     return [{"id": repo.id, "name": repo.name, "path": repo.path} for repo in repos]
 
+
 @app.get("/api/commits/{repo_id}")
 async def get_commits(repo_id: int):
     db = SessionLocal()
     commits = db.query(Commit).filter(Commit.repository_id == repo_id).all()
     db.close()
-    return [{"hash": c.hash, "author": c.author, "message": c.message, "timestamp": c.timestamp.isoformat()} for c in commits]
+    return [
+        {
+            "hash": c.hash,
+            "author": c.author,
+            "message": c.message,
+            "timestamp": c.timestamp.isoformat(),
+        }
+        for c in commits
+    ]
+
 
 @app.get("/api/changes/{commit_hash}")
 async def get_file_changes(commit_hash: str):
@@ -41,36 +52,48 @@ async def get_file_changes(commit_hash: str):
     commit = db.query(Commit).filter(Commit.hash == commit_hash).first()
     if not commit:
         raise HTTPException(status_code=404, detail="Commit not found")
-    
+
     changes = db.query(FileChange).filter(FileChange.commit_id == commit.id).all()
     db.close()
-    
-    return [{
-        "file_path": c.file_path,
-        "lines_added": c.lines_added,
-        "lines_deleted": c.lines_deleted,
-        "churn_score": c.churn_score,
-        "hotspot_score": c.hotspot_score
-    } for c in changes]
+
+    return [
+        {
+            "file_path": c.file_path,
+            "lines_added": c.lines_added,
+            "lines_deleted": c.lines_deleted,
+            "churn_score": c.churn_score,
+            "hotspot_score": c.hotspot_score,
+        }
+        for c in changes
+    ]
+
 
 @app.get("/api/snapshots/{repo_id}")
 async def get_snapshots(repo_id: int):
     db = SessionLocal()
-    commits = db.query(Commit).filter(Commit.repository_id == repo_id).order_by(Commit.timestamp).all()
-    
+    commits = (
+        db.query(Commit)
+        .filter(Commit.repository_id == repo_id)
+        .order_by(Commit.timestamp)
+        .all()
+    )
+
     snapshots = []
     for commit in commits:
         changes = db.query(FileChange).filter(FileChange.commit_id == commit.id).all()
         snapshot = {
             "timestamp": commit.timestamp.isoformat(),
             "hash": commit.hash,
-            "files": [{
-                "path": c.file_path,
-                "churn": c.churn_score,
-                "hotspot": c.hotspot_score
-            } for c in changes]
+            "files": [
+                {
+                    "path": c.file_path,
+                    "churn": c.churn_score,
+                    "hotspot": c.hotspot_score,
+                }
+                for c in changes
+            ],
         }
         snapshots.append(snapshot)
-    
+
     db.close()
-    return snapshots 
+    return snapshots

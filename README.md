@@ -1,5 +1,10 @@
 # TimeWarp Git
 
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18.2.0-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.3.0-EE4C2C?style=for-the-badge&logo=pytorch)](https://pytorch.org/)
+[![Three.js](https://img.shields.io/badge/Three.js-0.158.0-000000?style=for-the-badge&logo=three.js)](https://threejs.org/)
+
 TimeWarp Git is an interactive 3-D visualization of a Git repository's history, built with FastAPI, PostgreSQL, PyTorch (stub hotspot model), and React + Three.js. This innovative tool transforms the traditional linear view of Git history into an immersive three-dimensional experience, allowing developers to explore their codebase evolution through time and space.
 
 The visualization features a dynamic timeline slider that reveals commit evolution as you navigate through the repository's history. Each file is represented as a cube in 3D space, with size and color determined by code churn metrics. Cubes glow with special effects when their hotspot score exceeds 0.8, highlighting areas of high activity or potential technical debt. The interactive interface allows users to click on any cube to view detailed Monaco diff views, providing instant access to the specific changes that occurred in that file.
@@ -17,7 +22,49 @@ TimeWarp Git is designed as a local-only application for creating compelling dem
 
 ## Quick Start
 
-*Quick start instructions will be added here.*
+### Prerequisites
+- Python 3.8+
+- Node.js 16+
+- pnpm (or npm)
+
+### Backend Setup
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r backend/requirements.txt
+
+# Start backend server
+cd backend
+python -m uvicorn api.app:app --reload --host 127.0.0.1 --port 8000
+```
+
+### Frontend Setup
+```bash
+# Install dependencies
+cd frontend
+pnpm install
+
+# Start development server
+pnpm dev
+```
+
+### Ingest Repository
+```bash
+# In another terminal, ingest your Git repository
+cd backend
+python cli.py --repo /path/to/your/repo --db-url sqlite:///timewarp.db
+```
+
+Visit `http://localhost:5173` to see the TimeWarp Git visualization!
+
+## Demo
+
+![TimeWarp Git Demo](assets/demo.gif)
+
+*Interactive 3D visualization of Git repository evolution with timeline navigation and hotspot detection.*
 
 ## Installation
 

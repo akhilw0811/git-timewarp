@@ -1,74 +1,122 @@
-import React, { useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
-import { Box } from '@react-three/drei'
-import * as THREE from 'three'
+import React, { useRef, useMemo } from "react";
+import { useFrame } from "@react-three/fiber";
+import { OrbitControls, Instances, Instance } from "@react-three/drei";
+import * as THREE from "three";
 
-interface FileData {
-  path: string
-  churn: number
-  hotspot: number
+interface FileSnapshot {
+  path: string;
+  churn: number;
+  hotspot_score: number;
 }
 
 interface SceneProps {
-  snapshot?: {
-    timestamp: string
-    hash: string
-    files: FileData[]
-  }
-  showHotspots: boolean
-  onFileClick: (filePath: string) => void
+  files: FileSnapshot[];
+  onFileClick: (filePath: string) => void;
 }
 
-export default function Scene({ snapshot, showHotspots, onFileClick }: SceneProps) {
-  const groupRef = useRef<THREE.Group>(null)
+// Color interpolation function
+function interpolateColor(
+  color1: string,
+  color2: string,
+  factor: number,
+): string {
+  const c1 = new THREE.Color(color1);
+  const c2 = new THREE.Color(color2);
+  const result = c1.clone().lerp(c2, factor);
+  return `#${result.getHexString()}`;
+}
+
+export default function Scene({ files, onFileClick }: SceneProps) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  // Group files by directory
+  const directoryMap = useMemo(() => {
+    const map = new Map<string, FileSnapshot[]>();
+
+    files.forEach((file) => {
+      const pathParts = file.path.split("/");
+      const dirName = pathParts.length > 1 ? pathParts[0] : "root";
+
+      if (!map.has(dirName)) {
+        map.set(dirName, []);
+      }
+      map.get(dirName)!.push(file);
+    });
+
+    return map;
+  }, [files]);
+
+  // Calculate positions for all files
+  const filePositions = useMemo(() => {
+    const positions: Array<{
+      position: [number, number, number];
+      color: string;
+      emissiveColor: string | null;
+      file: FileSnapshot;
+    }> = [];
+
+    const directories = Array.from(directoryMap.keys());
+    const maxChurn = Math.max(...files.map((f) => f.churn), 1);
+
+    directories.forEach((dirName, dirIndex) => {
+      const dirFiles = directoryMap.get(dirName)!;
+
+      dirFiles.forEach((file, fileIndex) => {
+        const x = (dirIndex - directories.length / 2) * 3; // Directory spacing
+        const y = fileIndex * 1.2; // File spacing within directory
+        const z = 0;
+
+        const churnFactor = Math.min(file.churn / maxChurn, 1);
+        const color = interpolateColor("#87cefa", "#ff0000", churnFactor);
+        const emissiveColor = file.hotspot_score > 0.8 ? "hotpink" : null;
+
+        positions.push({
+          position: [x, y, z],
+          color,
+          emissiveColor,
+          file,
+        });
+      });
+    });
+
+    return positions;
+  }, [directoryMap, files]);
 
   useFrame((state) => {
     if (groupRef.current) {
-      groupRef.current.rotation.y += 0.005
+      groupRef.current.rotation.y += 0.005;
     }
-  })
-
-  if (!snapshot) {
-    return null
-  }
-
-  const maxChurn = Math.max(...snapshot.files.map(f => f.churn), 1)
-  const gridSize = Math.ceil(Math.sqrt(snapshot.files.length))
-  const spacing = 2
+  });
 
   return (
     <>
       <ambientLight intensity={0.4} />
       <pointLight position={[10, 10, 10]} intensity={1} />
-      
-      <group ref={groupRef}>
-        {snapshot.files.map((file, index) => {
-          const row = Math.floor(index / gridSize)
-          const col = index % gridSize
-          const x = (col - gridSize / 2) * spacing
-          const z = (row - gridSize / 2) * spacing
-          const size = Math.max(0.1, (file.churn / maxChurn) * 2)
-          
-          const color = file.hotspot > 0.8 && showHotspots 
-            ? '#ff6b6b' 
-            : `hsl(${(file.churn / maxChurn) * 240}, 70%, 50%)`
 
-          return (
-            <Box
-              key={file.path}
-              position={[x, 0, z]}
-              args={[size, size, size]}
-              onClick={() => onFileClick(file.path)}
-            >
-              <meshStandardMaterial 
-                color={color}
-                emissive={file.hotspot > 0.8 && showHotspots ? color : '#000000'}
-                emissiveIntensity={file.hotspot > 0.8 && showHotspots ? 0.3 : 0}
-              />
-            </Box>
-          )
-        })}
+      <OrbitControls
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        minDistance={5}
+        maxDistance={50}
+      />
+
+      <group ref={groupRef}>
+        {filePositions.map((item, index) => (
+          <mesh
+            key={index}
+            position={item.position}
+            onClick={() => onFileClick(item.file.path)}
+          >
+            <boxGeometry args={[0.8, 0.8, 0.8]} />
+            <meshStandardMaterial
+              color={item.color}
+              emissive={item.emissiveColor || "#000000"}
+              emissiveIntensity={item.emissiveColor ? 0.3 : 0}
+            />
+          </mesh>
+        ))}
       </group>
     </>
-  )
-} 
+  );
+}
