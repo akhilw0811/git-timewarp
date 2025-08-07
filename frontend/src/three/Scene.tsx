@@ -12,6 +12,7 @@ interface FileSnapshot {
 interface SceneProps {
   files: FileSnapshot[];
   hotspotThreshold?: number;
+  resetSignal?: number;
   onFileClick: (filePath: string) => void;
 }
 
@@ -27,7 +28,7 @@ function interpolateColor(
   return `#${result.getHexString()}`;
 }
 
-export default function Scene({ files, hotspotThreshold = 0.8, onFileClick }: SceneProps) {
+export default function Scene({ files, hotspotThreshold = 0.8, resetSignal = 0, onFileClick }: SceneProps) {
   const groupRef = useRef<THREE.Group>(null);
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
@@ -106,8 +107,8 @@ export default function Scene({ files, hotspotThreshold = 0.8, onFileClick }: Sc
     }
   });
 
-  // Fit camera to content whenever files change
-  useEffect(() => {
+  // Fit camera to content whenever files change or reset requested
+  const fitToContent = () => {
     if (!filePositions.length) return;
 
     const points: THREE.Vector3[] = filePositions.map(
@@ -134,7 +135,10 @@ export default function Scene({ files, hotspotThreshold = 0.8, onFileClick }: Sc
       controlsRef.current.target.copy(center);
       controlsRef.current.update();
     }
-  }, [filePositions, camera]);
+  };
+
+  useEffect(() => { fitToContent(); }, [filePositions, camera]);
+  useEffect(() => { fitToContent(); }, [resetSignal]);
 
   return (
     <>
