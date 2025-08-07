@@ -4,6 +4,7 @@ import Scene from "./three/Scene";
 import TimelineSlider from "./components/TimelineSlider";
 import DiffModal from "./components/DiffModal";
 import HotspotToggle from "./components/HotspotToggle";
+import { getHotspotThreshold } from "./lib/config";
 import { useSnapshots } from "./hooks/useSnapshots";
 
 function App() {
@@ -15,8 +16,9 @@ function App() {
     useSnapshots();
 
   // Filter files based on hotspot toggle
+  const threshold = getHotspotThreshold();
   const filteredFiles = showHotspotsOnly
-    ? files.filter((file) => file.hotspot_score > 0.8)
+    ? files.filter((file) => file.hotspot_score >= threshold)
     : files;
 
   const handleFileClick = (filePath: string) => {

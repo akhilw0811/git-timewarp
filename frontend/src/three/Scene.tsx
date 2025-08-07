@@ -87,7 +87,7 @@ export default function Scene({ files, onFileClick }: SceneProps) {
 
       const churnFactor = Math.min(file.churn / maxChurn, 1);
       const color = interpolateColor("#87cefa", "#ff0000", churnFactor);
-      const emissiveColor = file.hotspot_score > 0.8 ? "#ff69b4" : null;
+      const emissiveColor = file.hotspot_score >= 0.8 ? "#ff69b4" : null;
 
       positions.push({ position: [x, y, z], color, emissiveColor, file });
     });

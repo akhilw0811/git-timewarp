@@ -6,3 +6,10 @@ export function getApiBase(): string {
     : "http://127.0.0.1:8000";
 }
 
+export function getHotspotThreshold(): number {
+  const raw = (import.meta as any).env?.VITE_HOTSPOT_THRESHOLD as string | undefined;
+  const value = raw ? Number(raw) : NaN;
+  if (!Number.isFinite(value)) return 0.5;
+  return Math.min(Math.max(value, 0), 1);
+}
+
