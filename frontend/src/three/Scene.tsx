@@ -65,6 +65,7 @@ export default function Scene({ files, hotspotThreshold = 0.8, onFileClick }: Sc
   const filePositions = useMemo(() => {
     const positions: Array<{
       position: [number, number, number];
+      size: [number, number, number];
       color: string;
       emissiveColor: string | null;
       file: FileSnapshot;
@@ -88,9 +89,11 @@ export default function Scene({ files, hotspotThreshold = 0.8, onFileClick }: Sc
 
       const churnFactor = Math.min(file.churn / maxChurn, 1);
       const color = interpolateColor("#87cefa", "#ff0000", churnFactor);
+      const sizeBase = 1.6;
+      const size = (sizeBase + churnFactor * 1.6);
       const emissiveColor = file.hotspot_score >= hotspotThreshold ? "#ff69b4" : null;
 
-      positions.push({ position: [x, y, z], color, emissiveColor, file });
+      positions.push({ position: [x, y, z], size: [size, size, size], color, emissiveColor, file });
     });
 
     return positions;
@@ -139,15 +142,7 @@ export default function Scene({ files, hotspotThreshold = 0.8, onFileClick }: Sc
       <pointLight position={[10, 10, 10]} intensity={1} />
 
       {/* Title */}
-      <Text
-        position={[0, 25, 0]}
-        fontSize={2}
-        color="white"
-        anchorX="center"
-        anchorY="middle"
-      >
-        Git Repository Files
-      </Text>
+      <Text position={[0, 25, 0]} fontSize={2} color="white" anchorX="center" anchorY="middle">Git Repository Files</Text>
 
       <OrbitControls
         ref={controlsRef}
@@ -176,12 +171,21 @@ export default function Scene({ files, hotspotThreshold = 0.8, onFileClick }: Sc
               document.body.style.cursor = "auto";
             }}
           >
-            <boxGeometry args={[2.2, 2.2, 2.2]} />
+            <boxGeometry args={item.size} />
             <meshStandardMaterial
               color={item.color}
               emissive={item.emissiveColor || "#000000"}
               emissiveIntensity={item.emissiveColor ? 0.35 : 0}
             />
+            {/* subtle outline on hover */}
+            {hoveredIndex === index && (
+              <mesh position={[0, 0, 0]}
+                onPointerOver={(e) => e.stopPropagation()}
+                onPointerOut={(e) => e.stopPropagation()}>
+                <boxGeometry args={[item.size[0]*1.06, item.size[1]*1.06, item.size[2]*1.06]} />
+                <meshBasicMaterial color="#ffffff" wireframe transparent opacity={0.25} />
+              </mesh>
+            )}
             {hoveredIndex === index && (
               <Html center distanceFactor={8} position={[0, 2.2, 0]}>
                 <div className="px-2 py-1 text-xs rounded bg-gray-900/90 text-white shadow">

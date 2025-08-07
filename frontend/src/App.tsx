@@ -16,7 +16,7 @@ function App() {
     useSnapshots();
 
   // Filter files based on hotspot toggle
-  const threshold = getHotspotThreshold();
+  const [threshold, setThreshold] = useState(getHotspotThreshold());
   let filteredFiles = showHotspotsOnly
     ? files.filter((file) => file.hotspot_score >= threshold)
     : files;
@@ -70,8 +70,21 @@ function App() {
           enabled={showHotspotsOnly}
           onChange={setShowHotspotsOnly}
           disabled={loading}
+          threshold={threshold}
+          onThresholdChange={setThreshold}
         />
       </div>
+      {/* Legend + status */}
+      <div className="absolute top-4 left-4 pointer-events-none">
+        <div className="bg-gray-900/70 rounded px-3 py-2 text-xs text-gray-200 space-y-1">
+          <div className="font-semibold text-white">Legend</div>
+          <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#87cefa]"></span><span>Low churn</span></div>
+          <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#ff0000]"></span><span>High churn (larger cubes)</span></div>
+          <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-pink-500"></span><span>Hotspot ≥ τ</span></div>
+          <div className="text-gray-300 pt-1">Showing {filteredFiles.length} / {files.length} files • τ={threshold.toFixed(2)}</div>
+        </div>
+      </div>
+
 
       {selectedFile && selectedCommitId && (
         <DiffModal
