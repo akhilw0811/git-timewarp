@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { getApiBase } from "../lib/config";
 
 interface Commit {
   id: string;
@@ -18,7 +19,7 @@ interface Directory {
   files: FileSnapshot[];
 }
 
-export function useSnapshots(apiBase: string = "http://127.0.0.1:8000") {
+export function useSnapshots(apiBase: string = getApiBase()) {
   const [commits, setCommits] = useState<Commit[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [files, setFiles] = useState<FileSnapshot[]>([]);

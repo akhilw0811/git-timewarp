@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { DiffEditor } from "@monaco-editor/react";
 import axios from "axios";
+import { getApiBase } from "../lib/config";
 
 interface DiffModalProps {
   commitId: string;
@@ -41,7 +42,7 @@ export default function DiffModal({
         setLoading(true);
         setError(null);
         const response = await axios.get(
-          `http://127.0.0.1:8000/diff/${commitId}/${filePath}`,
+          `${getApiBase()}/diff/${commitId}/${filePath}`,
         );
         setDiffData(response.data);
       } catch (err) {

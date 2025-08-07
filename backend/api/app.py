@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+import re
 from fastapi.middleware.cors import CORSMiddleware
 from git import Repo
 from typing import List
@@ -23,7 +24,12 @@ async def get_timeline():
     """Get timeline of commits ordered by timestamp."""
     session = SessionLocal()
     try:
-        commits = session.query(Commit).order_by(Commit.timestamp).all()
+        commits = (
+            session.query(Commit)
+            .order_by(Commit.timestamp)
+            .limit(2000)  # safety cap; add pagination later
+            .all()
+        )
         return [
             CommitOut(
                 id=commit.id, timestamp=commit.timestamp, message=commit.message.strip()
@@ -66,6 +72,12 @@ async def get_diff(commit_id: str, path: str):
     """Get diff for a specific file at a commit."""
     session = SessionLocal()
     try:
+        # Basic input validation
+        if not re.fullmatch(r"[0-9a-fA-F]{6,64}", commit_id):
+            raise HTTPException(status_code=400, detail="Invalid commit id")
+        if ".." in path or path.startswith("/") or path.startswith("\\"):
+            raise HTTPException(status_code=400, detail="Invalid path")
+
         # Get the commit
         commit = session.query(Commit).filter(Commit.id == commit_id).first()
         if not commit:

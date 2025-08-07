@@ -1,6 +1,6 @@
 import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Text } from "@react-three/drei";
+import { OrbitControls, Text, Instances, Instance } from "@react-three/drei";
 import * as THREE from "three";
 
 interface FileSnapshot {
@@ -143,20 +143,18 @@ export default function Scene({ files, onFileClick }: SceneProps) {
       />
 
       <group ref={groupRef}>
-        {filePositions.map((item, index) => (
-          <mesh
-            key={index}
-            position={item.position}
-            onClick={() => onFileClick(item.file.path)}
-          >
-            <boxGeometry args={[2.2, 2.2, 2.2]} />
-            <meshStandardMaterial
-              color={item.color}
-              emissive={item.emissiveColor || "#000000"}
-              emissiveIntensity={item.emissiveColor ? 0.35 : 0}
+        <Instances limit={Math.max(1, filePositions.length)}>
+          <boxGeometry args={[2.2, 2.2, 2.2]} />
+          <meshStandardMaterial color="#87cefa" />
+          {filePositions.map((item, index) => (
+            <Instance
+              key={index}
+              position={item.position}
+              color={item.color as any}
+              onClick={() => onFileClick(item.file.path)}
             />
-          </mesh>
-        ))}
+          ))}
+        </Instances>
       </group>
     </>
   );
