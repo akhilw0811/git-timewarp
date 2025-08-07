@@ -13,6 +13,7 @@ interface SceneProps {
   files: FileSnapshot[];
   hotspotThreshold?: number;
   resetSignal?: number;
+  colorMode?: "churn" | "hotspot" | "filetype";
   onFileClick: (filePath: string) => void;
 }
 
@@ -28,7 +29,7 @@ function interpolateColor(
   return `#${result.getHexString()}`;
 }
 
-export default function Scene({ files, hotspotThreshold = 0.8, resetSignal = 0, onFileClick }: SceneProps) {
+export default function Scene({ files, hotspotThreshold = 0.8, resetSignal = 0, colorMode = "churn", onFileClick }: SceneProps) {
   const groupRef = useRef<THREE.Group>(null);
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
@@ -74,22 +75,45 @@ export default function Scene({ files, hotspotThreshold = 0.8, resetSignal = 0, 
 
     const maxChurn = Math.max(...files.map((f) => f.churn), 1);
     const totalFiles = files.length;
+    const dirs = Array.from(
+      new Set(files.map((f) => (f.path.includes("/") ? f.path.split("/")[0] : "root")))
+    ).sort();
+    const dirToColumn = new Map<string, number>(dirs.map((d, i) => [d, i]));
+    const columnCount = Math.max(1, dirs.length);
 
     files.forEach((file, fileIndex) => {
       // Spiral distribution around the origin
       const spiralAngle = (fileIndex / Math.max(totalFiles, 1)) * 6 * Math.PI;
       const spiralRadius = 4 + (fileIndex / Math.max(totalFiles, 1)) * 18;
 
+      // Column offset by directory
+      const dir = file.path.includes("/") ? file.path.split("/")[0] : "root";
+      const col = dirToColumn.get(dir) ?? 0;
+      const colOffsetX = (col - (columnCount - 1) / 2) * 30;
+
       const jx = hash01(file.path + "x") - 0.5;
       const jy = hash01(file.path + "y") - 0.5;
       const jz = hash01(file.path + "z") - 0.5;
 
-      const x = Math.cos(spiralAngle) * spiralRadius + jx * 2;
+      const x = Math.cos(spiralAngle) * spiralRadius + jx * 2 + colOffsetX;
       const y = Math.sin(spiralAngle) * spiralRadius + jy * 2;
       const z = jz * 8;
 
       const churnFactor = Math.min(file.churn / maxChurn, 1);
-      const color = interpolateColor("#87cefa", "#ff0000", churnFactor);
+      const hotspotFactor = Math.min(Math.max(file.hotspot_score, 0), 1);
+      let color = "#87cefa";
+      if (colorMode === "churn") {
+        color = interpolateColor("#87cefa", "#ff0000", churnFactor);
+      } else if (colorMode === "hotspot") {
+        color = interpolateColor("#1e3a8a", "#ec4899", hotspotFactor);
+      } else {
+        const ext = file.path.split(".").pop()?.toLowerCase() || "";
+        if (["py","ts","tsx","js","go","rs","java","kt","rb"].includes(ext)) color = "#10b981";
+        else if (["md","rst","txt","adoc"].includes(ext)) color = "#f59e0b";
+        else if (["yml","yaml","toml","json","ini","cfg","conf"].includes(ext)) color = "#6366f1";
+        else if (["test","spec"].some((s) => file.path.includes(s))) color = "#14b8a6";
+        else color = "#64748b";
+      }
       const sizeBase = 1.6;
       const size = (sizeBase + churnFactor * 1.6);
       const emissiveColor = file.hotspot_score >= hotspotThreshold ? "#ff69b4" : null;
@@ -142,8 +166,8 @@ export default function Scene({ files, hotspotThreshold = 0.8, resetSignal = 0, 
 
   return (
     <>
-      <ambientLight intensity={0.4} />
-      <pointLight position={[10, 10, 10]} intensity={1} />
+      <ambientLight intensity={0.55} />
+      <pointLight position={[20, 20, 10]} intensity={1.2} />
 
       {/* Title */}
       <Text position={[0, 25, 0]} fontSize={2} color="white" anchorX="center" anchorY="middle">Git Repository Files</Text>

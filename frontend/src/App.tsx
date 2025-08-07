@@ -13,6 +13,9 @@ function App() {
   const [selectedCommitId, setSelectedCommitId] = useState<string | null>(null);
   const [resetSignal, setResetSignal] = useState(0);
   const [selectedDirs, setSelectedDirs] = useState<string[]>([]);
+  const [colorMode, setColorMode] = useState<"churn" | "hotspot" | "filetype">("churn");
+  const [pathQuery, setPathQuery] = useState("");
+  const [gotoSha, setGotoSha] = useState("");
 
   const { commits, currentIndex, setCurrentIndex, files, loading, error } =
     useSnapshots();
@@ -28,9 +31,15 @@ function App() {
     });
   }, [files, selectedDirs]);
 
+  const filesQueryFiltered = useMemo(() => {
+    if (!pathQuery.trim()) return filesByDirFiltered;
+    const q = pathQuery.toLowerCase();
+    return filesByDirFiltered.filter((f) => f.path.toLowerCase().includes(q));
+  }, [filesByDirFiltered, pathQuery]);
+
   let filteredFiles = showHotspotsOnly
-    ? filesByDirFiltered.filter((file) => file.hotspot_score >= threshold)
-    : filesByDirFiltered;
+    ? filesQueryFiltered.filter((file) => file.hotspot_score >= threshold)
+    : filesQueryFiltered;
 
   // If hotspots-only yields no results, fall back to top-N hottest
   const usedFallback = showHotspotsOnly && filteredFiles.length === 0 && files.length > 0;
@@ -64,7 +73,7 @@ function App() {
   return (
     <div className="w-screen h-screen bg-black relative">
       <Canvas gl={{ antialias: true, alpha: false }} dpr={[1, 2]} camera={{ position: [0, 0, 30], fov: 70 }}>
-        <Scene files={filteredFiles} hotspotThreshold={threshold} resetSignal={resetSignal} onFileClick={handleFileClick} />
+        <Scene files={filteredFiles} hotspotThreshold={threshold} resetSignal={resetSignal} colorMode={colorMode} onFileClick={handleFileClick} />
       </Canvas>
 
       <div className="absolute bottom-4 left-4 right-4 pointer-events-auto">
@@ -90,15 +99,48 @@ function App() {
         >
           Reset view
         </button>
+        <div className="bg-gray-900/80 rounded px-2 py-1 text-xs text-gray-200 flex items-center space-x-2">
+          <span className="text-gray-400">Color:</span>
+          <select className="bg-gray-800 rounded px-2 py-1 outline-none" value={colorMode} onChange={(e)=>setColorMode(e.target.value as any)}>
+            <option value="churn">Churn</option>
+            <option value="hotspot">Hotspot score</option>
+            <option value="filetype">File type</option>
+          </select>
+        </div>
       </div>
       {/* Legend + status */}
-      <div className="absolute top-4 left-4 pointer-events-none">
-        <div className="bg-gray-900/70 rounded px-3 py-2 text-xs text-gray-200 space-y-1">
+      <div className="absolute top-4 left-4 pointer-events-auto">
+        <div className="bg-gray-900/70 rounded px-3 py-2 text-xs text-gray-200 space-y-2">
           <div className="font-semibold text-white">Legend</div>
-          <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#87cefa]"></span><span>Low churn</span></div>
-          <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#ff0000]"></span><span>High churn (larger cubes)</span></div>
-          <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-pink-500"></span><span>Hotspot ≥ τ</span></div>
-          <div className="text-gray-300 pt-1">Showing {filteredFiles.length} / {files.length} files • τ={threshold.toFixed(2)}</div>
+          {colorMode === "churn" && (
+            <>
+              <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#87cefa]"></span><span>Low churn</span></div>
+              <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#ff0000]"></span><span>High churn (larger cubes)</span></div>
+            </>
+          )}
+          {colorMode === "hotspot" && (
+            <>
+              <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#1e3a8a]"></span><span>Low hotspot</span></div>
+              <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-pink-500"></span><span>High hotspot (≥ τ glows)</span></div>
+            </>
+          )}
+          {colorMode === "filetype" && (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#10b981]"></span><span>Code</span></div>
+              <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#f59e0b]"></span><span>Docs</span></div>
+              <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#6366f1]"></span><span>Config</span></div>
+              <div className="flex items-center space-x-2"><span className="w-3 h-3 inline-block bg-[#14b8a6]"></span><span>Tests</span></div>
+            </div>
+          )}
+          <div className="text-gray-300">Showing {filteredFiles.length} / {files.length} files • τ={threshold.toFixed(2)}</div>
+          {/* Search */}
+          <input
+            type="text"
+            placeholder="Filter by path..."
+            value={pathQuery}
+            onChange={(e)=>setPathQuery(e.target.value)}
+            className="pointer-events-auto w-56 bg-gray-800 rounded px-2 py-1 text-xs text-gray-200 placeholder-gray-500 outline-none"
+          />
         </div>
       </div>
 
@@ -163,6 +205,28 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Go to commit */}
+      <div className="absolute bottom-4 left-4 pointer-events-auto flex items-center space-x-2">
+        <input
+          type="text"
+          value={gotoSha}
+          placeholder="Go to SHA..."
+          onChange={(e)=>setGotoSha(e.target.value)}
+          className="bg-gray-900/70 rounded px-2 py-1 text-xs text-gray-200 outline-none"
+        />
+        <button
+          className="px-2 py-1 text-xs rounded bg-gray-800 text-gray-200 hover:bg-gray-700"
+          onClick={()=>{
+            const q = gotoSha.trim();
+            if (!q) return;
+            const idx = commits.findIndex(c => c.id.startsWith(q) || c.id === q);
+            if (idx >= 0) setCurrentIndex(idx);
+          }}
+        >
+          Go
+        </button>
+      </div>
     </div>
   );
 }
