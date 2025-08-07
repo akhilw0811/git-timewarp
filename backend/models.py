@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, create_engine, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
+import os
 
 Base = declarative_base()
 
@@ -39,11 +40,13 @@ class Snapshot(Base):
     file = relationship("File", back_populates="snapshots")
 
 
-def get_engine(db_url="sqlite:///timewarp.db"):
+def get_engine(db_url: str | None = None):
+    if not db_url:
+        db_url = os.getenv("DATABASE_URL", "sqlite:///timewarp.db")
     return create_engine(db_url)
 
 
-def SessionLocal(db_url="sqlite:///timewarp.db"):
+def SessionLocal(db_url: str | None = None):
     engine = get_engine(db_url)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine)()

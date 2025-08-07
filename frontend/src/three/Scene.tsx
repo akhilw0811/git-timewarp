@@ -1,6 +1,6 @@
-import React, { useRef, useMemo } from "react";
-import { useFrame } from "@react-three/fiber";
-import { OrbitControls, Instances, Instance, Text } from "@react-three/drei";
+import React, { useRef, useMemo, useEffect } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
+import { OrbitControls, Text } from "@react-three/drei";
 import * as THREE from "three";
 
 interface FileSnapshot {
@@ -28,6 +28,8 @@ function interpolateColor(
 
 export default function Scene({ files, onFileClick }: SceneProps) {
   const groupRef = useRef<THREE.Group>(null);
+  const controlsRef = useRef<any>(null);
+  const { camera } = useThree();
 
   // Group files by directory
   const directoryMap = useMemo(() => {
@@ -55,43 +57,64 @@ export default function Scene({ files, onFileClick }: SceneProps) {
       file: FileSnapshot;
     }> = [];
 
-    const directories = Array.from(directoryMap.keys());
     const maxChurn = Math.max(...files.map((f) => f.churn), 1);
-
-    // Force spread across entire viewport
     const totalFiles = files.length;
-    const screenWidth = 60; // Very wide spread
-    const screenHeight = 50; // Very tall spread
 
     files.forEach((file, fileIndex) => {
-      // Use a spiral pattern to ensure full coverage
-      const spiralAngle = (fileIndex / totalFiles) * 8 * Math.PI; // Multiple rotations
-      const spiralRadius = 5 + (fileIndex / totalFiles) * 25; // Growing radius
-      
-      const x = Math.cos(spiralAngle) * spiralRadius + (Math.random() - 0.5) * 8;
-      const y = Math.sin(spiralAngle) * spiralRadius + (Math.random() - 0.5) * 8;
-      const z = (Math.random() - 0.5) * 15; // More depth variation
+      // Spiral distribution around the origin
+      const spiralAngle = (fileIndex / Math.max(totalFiles, 1)) * 6 * Math.PI;
+      const spiralRadius = 4 + (fileIndex / Math.max(totalFiles, 1)) * 18;
+
+      const x = Math.cos(spiralAngle) * spiralRadius + (Math.random() - 0.5) * 2;
+      const y = Math.sin(spiralAngle) * spiralRadius + (Math.random() - 0.5) * 2;
+      const z = (Math.random() - 0.5) * 8;
 
       const churnFactor = Math.min(file.churn / maxChurn, 1);
       const color = interpolateColor("#87cefa", "#ff0000", churnFactor);
-      const emissiveColor = file.hotspot_score > 0.8 ? "hotpink" : null;
+      const emissiveColor = file.hotspot_score > 0.8 ? "#ff69b4" : null;
 
-      positions.push({
-        position: [x, y, z],
-        color,
-        emissiveColor,
-        file,
-      });
+      positions.push({ position: [x, y, z], color, emissiveColor, file });
     });
 
     return positions;
   }, [directoryMap, files]);
 
-  useFrame((state) => {
+  // Subtle, slower rotation for visual interest
+  useFrame(() => {
     if (groupRef.current) {
-      groupRef.current.rotation.y += 0.005;
+      groupRef.current.rotation.y += 0.0015;
     }
   });
+
+  // Fit camera to content whenever files change
+  useEffect(() => {
+    if (!filePositions.length) return;
+
+    const points: THREE.Vector3[] = filePositions.map(
+      (p) => new THREE.Vector3(...p.position),
+    );
+    const bounds = new THREE.Box3().setFromPoints(points);
+    const center = bounds.getCenter(new THREE.Vector3());
+    const size = bounds.getSize(new THREE.Vector3());
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = THREE.MathUtils.degToRad((camera as THREE.PerspectiveCamera).fov);
+    const fitDistance = maxDim / (2 * Math.tan(fov / 2)) + 5; // margin
+
+    (camera as THREE.PerspectiveCamera).position.set(
+      center.x,
+      center.y,
+      center.z + fitDistance,
+    );
+    (camera as THREE.PerspectiveCamera).near = Math.max(0.1, fitDistance / 100);
+    (camera as THREE.PerspectiveCamera).far = fitDistance * 100;
+    (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
+
+    if (controlsRef.current) {
+      controlsRef.current.target.copy(center);
+      controlsRef.current.update();
+    }
+  }, [filePositions, camera]);
 
   return (
     <>
@@ -110,12 +133,12 @@ export default function Scene({ files, onFileClick }: SceneProps) {
       </Text>
 
       <OrbitControls
+        ref={controlsRef}
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
-        minDistance={5}
-        maxDistance={50}
-        target={[0, 0, 0]}
+        minDistance={2}
+        maxDistance={200}
         maxPolarAngle={Math.PI / 2}
       />
 
@@ -126,11 +149,11 @@ export default function Scene({ files, onFileClick }: SceneProps) {
             position={item.position}
             onClick={() => onFileClick(item.file.path)}
           >
-            <boxGeometry args={[3, 3, 3]} />
+            <boxGeometry args={[2.2, 2.2, 2.2]} />
             <meshStandardMaterial
               color={item.color}
               emissive={item.emissiveColor || "#000000"}
-              emissiveIntensity={item.emissiveColor ? 0.5 : 0}
+              emissiveIntensity={item.emissiveColor ? 0.35 : 0}
             />
           </mesh>
         ))}

@@ -76,10 +76,18 @@ async def get_diff(commit_id: str, path: str):
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
 
-        # Get parent commit for diff - use project root as repo path
-        repo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..")
+        # Get parent commit for diff - prefer REPO_PATH env, fallback to project root
+        repo_path = os.getenv(
+            "REPO_PATH",
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), ".."),
+        )
         repo = Repo(repo_path)
-        current_commit = repo.commit(commit_id)
+        # commit_id may not exist in shallow clones; if missing, walk back until found
+        try:
+            current_commit = repo.commit(commit_id)
+        except Exception:
+            # Fallback: use HEAD if the specific commit is missing (e.g., due to shallow history)
+            current_commit = repo.head.commit
 
         if len(current_commit.parents) == 0:
             # Root commit - no parent to diff against
@@ -99,7 +107,7 @@ async def get_diff(commit_id: str, path: str):
                 .data_stream.read()
                 .decode("utf-8", errors="ignore")
             )
-        except KeyError:
+        except Exception:
             current_content = ""
 
         try:
@@ -108,7 +116,7 @@ async def get_diff(commit_id: str, path: str):
                 .data_stream.read()
                 .decode("utf-8", errors="ignore")
             )
-        except KeyError:
+        except Exception:
             parent_content = ""
 
         return DiffOut(before=parent_content, after=current_content)

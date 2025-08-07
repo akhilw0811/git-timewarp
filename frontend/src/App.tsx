@@ -41,11 +41,11 @@ function App() {
 
   return (
     <div className="w-screen h-screen bg-black relative">
-      <Canvas camera={{ position: [0, 0, 45], fov: 100 }}>
+      <Canvas camera={{ position: [0, 0, 30], fov: 70 }}>
         <Scene files={filteredFiles} onFileClick={handleFileClick} />
       </Canvas>
 
-      <div className="absolute bottom-4 left-4 right-4">
+      <div className="absolute bottom-4 left-4 right-4 pointer-events-auto">
         <TimelineSlider
           currentIndex={currentIndex}
           totalCommits={commits.length}
@@ -54,7 +54,7 @@ function App() {
         />
       </div>
 
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 pointer-events-auto">
         <HotspotToggle
           enabled={showHotspotsOnly}
           onChange={setShowHotspotsOnly}
