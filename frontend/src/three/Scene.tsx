@@ -1,6 +1,6 @@
-import React, { useRef, useMemo, useEffect } from "react";
+import React, { useRef, useMemo, useEffect, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Text, Instances, Instance } from "@react-three/drei";
+import { OrbitControls, Text, Html } from "@react-three/drei";
 import * as THREE from "three";
 
 interface FileSnapshot {
@@ -30,6 +30,7 @@ export default function Scene({ files, onFileClick }: SceneProps) {
   const groupRef = useRef<THREE.Group>(null);
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   // Group files by directory
   const directoryMap = useMemo(() => {
@@ -48,6 +49,17 @@ export default function Scene({ files, onFileClick }: SceneProps) {
     return map;
   }, [files]);
 
+  // Deterministic small jitter based on path
+  function hash01(input: string): number {
+    let h = 2166136261;
+    for (let i = 0; i < input.length; i++) {
+      h ^= input.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    // map to [0,1)
+    return ((h >>> 0) % 100000) / 100000;
+  }
+
   // Calculate positions for all files
   const filePositions = useMemo(() => {
     const positions: Array<{
@@ -65,9 +77,13 @@ export default function Scene({ files, onFileClick }: SceneProps) {
       const spiralAngle = (fileIndex / Math.max(totalFiles, 1)) * 6 * Math.PI;
       const spiralRadius = 4 + (fileIndex / Math.max(totalFiles, 1)) * 18;
 
-      const x = Math.cos(spiralAngle) * spiralRadius + (Math.random() - 0.5) * 2;
-      const y = Math.sin(spiralAngle) * spiralRadius + (Math.random() - 0.5) * 2;
-      const z = (Math.random() - 0.5) * 8;
+      const jx = hash01(file.path + "x") - 0.5;
+      const jy = hash01(file.path + "y") - 0.5;
+      const jz = hash01(file.path + "z") - 0.5;
+
+      const x = Math.cos(spiralAngle) * spiralRadius + jx * 2;
+      const y = Math.sin(spiralAngle) * spiralRadius + jy * 2;
+      const z = jz * 8;
 
       const churnFactor = Math.min(file.churn / maxChurn, 1);
       const color = interpolateColor("#87cefa", "#ff0000", churnFactor);
@@ -143,18 +159,43 @@ export default function Scene({ files, onFileClick }: SceneProps) {
       />
 
       <group ref={groupRef}>
-        <Instances limit={Math.max(1, filePositions.length)}>
-          <boxGeometry args={[2.2, 2.2, 2.2]} />
-          <meshStandardMaterial color="#87cefa" />
-          {filePositions.map((item, index) => (
-            <Instance
-              key={index}
-              position={item.position}
-              color={item.color as any}
-              onClick={() => onFileClick(item.file.path)}
+        {filePositions.map((item, index) => (
+          <mesh
+            key={index}
+            position={item.position}
+            onClick={() => onFileClick(item.file.path)}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              setHoveredIndex(index);
+              document.body.style.cursor = "pointer";
+            }}
+            onPointerOut={(e) => {
+              e.stopPropagation();
+              setHoveredIndex((prev) => (prev === index ? null : prev));
+              document.body.style.cursor = "auto";
+            }}
+          >
+            <boxGeometry args={[2.2, 2.2, 2.2]} />
+            <meshStandardMaterial
+              color={item.color}
+              emissive={item.emissiveColor || "#000000"}
+              emissiveIntensity={item.emissiveColor ? 0.35 : 0}
             />
-          ))}
-        </Instances>
+            {hoveredIndex === index && (
+              <Html center distanceFactor={8} position={[0, 2.2, 0]}>
+                <div className="px-2 py-1 text-xs rounded bg-gray-900/90 text-white shadow">
+                  <div className="font-semibold truncate max-w-[320px]" title={item.file.path}>
+                    {item.file.path}
+                  </div>
+                  <div className="text-gray-300">churn: {item.file.churn}</div>
+                  <div className="text-gray-300">
+                    hotspot: {item.file.hotspot_score.toFixed(2)}
+                  </div>
+                </div>
+              </Html>
+            )}
+          </mesh>
+        ))}
       </group>
     </>
   );

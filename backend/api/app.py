@@ -20,14 +20,17 @@ app.add_middleware(
 
 
 @app.get("/timeline", response_model=List[CommitOut])
-async def get_timeline():
+async def get_timeline(page: int = 1, page_size: int = 200):
     """Get timeline of commits ordered by timestamp."""
     session = SessionLocal()
     try:
+        page = max(1, page)
+        page_size = min(max(1, page_size), 1000)
         commits = (
             session.query(Commit)
             .order_by(Commit.timestamp)
-            .limit(2000)  # safety cap; add pagination later
+            .offset((page - 1) * page_size)
+            .limit(page_size)
             .all()
         )
         return [
