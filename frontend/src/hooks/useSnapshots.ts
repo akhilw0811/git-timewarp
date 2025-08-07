@@ -32,7 +32,9 @@ export function useSnapshots(apiBase: string = getApiBase()) {
     const fetchTimeline = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${apiBase}/timeline`);
+        const response = await axios.get(`${apiBase}/timeline`, {
+          params: { page: 1, page_size: 200 },
+        });
         setCommits(response.data);
         setError(null);
       } catch (err) {

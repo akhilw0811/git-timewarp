@@ -1,4 +1,14 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, create_engine, JSON
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Float,
+    ForeignKey,
+    create_engine,
+    JSON,
+    Index,
+    UniqueConstraint,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 import os
@@ -38,6 +48,12 @@ class Snapshot(Base):
 
     commit = relationship("Commit", back_populates="snapshots")
     file = relationship("File", back_populates="snapshots")
+
+    __table_args__ = (
+        UniqueConstraint("commit_id", "file_id", name="uq_snapshot_commit_file"),
+        Index("ix_snapshot_commit", "commit_id"),
+        Index("ix_snapshot_file", "file_id"),
+    )
 
 
 def get_engine(db_url: str | None = None):

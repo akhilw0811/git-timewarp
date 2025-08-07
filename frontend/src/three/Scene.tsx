@@ -98,7 +98,7 @@ export default function Scene({ files, onFileClick }: SceneProps) {
   // Subtle, slower rotation for visual interest
   useFrame(() => {
     if (groupRef.current) {
-      groupRef.current.rotation.y += 0.0015;
+      groupRef.current.rotation.y += 0.001;
     }
   });
 
