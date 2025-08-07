@@ -11,6 +11,7 @@ interface FileSnapshot {
 
 interface SceneProps {
   files: FileSnapshot[];
+  hotspotThreshold?: number;
   onFileClick: (filePath: string) => void;
 }
 
@@ -26,7 +27,7 @@ function interpolateColor(
   return `#${result.getHexString()}`;
 }
 
-export default function Scene({ files, onFileClick }: SceneProps) {
+export default function Scene({ files, hotspotThreshold = 0.8, onFileClick }: SceneProps) {
   const groupRef = useRef<THREE.Group>(null);
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
@@ -87,7 +88,7 @@ export default function Scene({ files, onFileClick }: SceneProps) {
 
       const churnFactor = Math.min(file.churn / maxChurn, 1);
       const color = interpolateColor("#87cefa", "#ff0000", churnFactor);
-      const emissiveColor = file.hotspot_score >= 0.8 ? "#ff69b4" : null;
+      const emissiveColor = file.hotspot_score >= hotspotThreshold ? "#ff69b4" : null;
 
       positions.push({ position: [x, y, z], color, emissiveColor, file });
     });
