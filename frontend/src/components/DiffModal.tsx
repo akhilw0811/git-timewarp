@@ -19,6 +19,25 @@ export default function DiffModal({
   filePath,
   onClose,
 }: DiffModalProps) {
+  const detectLanguage = (path: string): string => {
+    const ext = path.split(".").pop()?.toLowerCase() || "";
+    if (["ts", "tsx"].includes(ext)) return "typescript";
+    if (ext === "js") return "javascript";
+    if (ext === "py") return "python";
+    if (ext === "json") return "json";
+    if (["yml", "yaml"].includes(ext)) return "yaml";
+    if (["md", "markdown"].includes(ext)) return "markdown";
+    if (["css"].includes(ext)) return "css";
+    if (["html", "htm"].includes(ext)) return "html";
+    if (["go"].includes(ext)) return "go";
+    if (["rs"].includes(ext)) return "rust";
+    if (["java"].includes(ext)) return "java";
+    if (["kt", "kts"].includes(ext)) return "kotlin";
+    if (["rb"].includes(ext)) return "ruby";
+    if (["sh", "bash"].includes(ext)) return "shell";
+    if (["sql"].includes(ext)) return "sql";
+    return "plaintext";
+  };
   const [diffData, setDiffData] = useState<DiffData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +133,7 @@ export default function DiffModal({
         <div className="flex-1 p-4">
           <DiffEditor
             height="100%"
-            language="typescript"
+            language={detectLanguage(filePath)}
             theme="vs-dark"
             original={diffData?.before || ""}
             modified={diffData?.after || ""}

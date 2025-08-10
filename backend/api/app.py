@@ -91,11 +91,11 @@ async def get_diff(commit_id: str, path: str):
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
 
-        # Get parent commit for diff - prefer REPO_PATH env, fallback to project root
-        repo_path = os.getenv(
-            "REPO_PATH",
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), ".."),
-        )
+        # Get parent commit for diff - prefer REPO_PATH env. If not set, try CWD if it is a git repo; else project root.
+        repo_path = os.getenv("REPO_PATH")
+        if not repo_path or not os.path.isdir(os.path.join(repo_path, ".git")):
+            cwd = os.getcwd()
+            repo_path = cwd if os.path.isdir(os.path.join(cwd, ".git")) else os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
         repo = Repo(repo_path)
         # commit_id may not exist in shallow clones; if missing, walk back until found
         try:

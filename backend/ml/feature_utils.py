@@ -1,41 +1,43 @@
 import re
 from sqlalchemy.orm import Session
-from models import Snapshot
+from sqlalchemy import desc
+from models import Snapshot, Commit
 
 
 def bugfix_commit(message: str) -> bool:
-    """Check if commit message indicates a bug fix."""
-    # heuristic keywords fix|bug|error|patch (case-insensitive)
-    bugfix_pattern = r'\b(fix|bug|error|patch)\b'
+    """Heuristic to detect bug-fix commits from the message."""
+    bugfix_pattern = r"\b(fix|bug|error|patch)\b"
     return bool(re.search(bugfix_pattern, message.lower()))
 
 
-def compute_features(session: Session, file_id: int, commit_ts: float, churn: int, path: str) -> list[float]:
-    """Compute features for hotspot prediction."""
-    # path_depth = path.count("/") + 1
+def compute_features(
+    session: Session, file_id: int, commit_ts: float, churn: int, path: str
+) -> list[float]:
+    """Compute features for hotspot prediction.
+
+    Features:
+    - churn
+    - path depth
+    - is test file flag
+    - time since last edit for this file (seconds)
+    """
     path_depth = path.count("/") + 1
-    
-    # is_test_file = 1 if "test" in path.lower() else 0
     is_test_file = 1 if "test" in path.lower() else 0
-    
-    # time_since_last_edit = seconds since previous snapshot for same file_id else 0
-    previous_snapshot = (
-        session.query(Snapshot)
+
+    # Find the most recent previous snapshot for this file prior to current commit_ts
+    previous = (
+        session.query(Snapshot, Commit)
+        .join(Commit, Snapshot.commit_id == Commit.id)
         .filter(Snapshot.file_id == file_id)
-        .filter(Snapshot.commit_id != commit_ts)  # Exclude current commit
-        .order_by(Snapshot.commit_id.desc())
+        .filter(Commit.timestamp < commit_ts)
+        .order_by(desc(Commit.timestamp))
         .first()
     )
-    
-    if previous_snapshot:
-        # Get the commit timestamp for the previous snapshot
-        from models import Commit
-        prev_commit = session.query(Commit).filter(Commit.id == previous_snapshot.commit_id).first()
-        if prev_commit:
-            time_since_last_edit = commit_ts - prev_commit.timestamp
-        else:
-            time_since_last_edit = 0.0
+
+    if previous:
+        _, prev_commit = previous
+        time_since_last_edit = commit_ts - float(prev_commit.timestamp)
     else:
         time_since_last_edit = 0.0
-    
-    return [churn, path_depth, is_test_file, time_since_last_edit] 
+
+    return [float(churn), float(path_depth), float(is_test_file), float(time_since_last_edit)]

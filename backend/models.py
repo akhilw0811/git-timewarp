@@ -1,17 +1,7 @@
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Float,
-    ForeignKey,
-    create_engine,
-    JSON,
-    Index,
-    UniqueConstraint,
-)
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, create_engine, JSON
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import os
+from typing import Dict, Optional
 
 Base = declarative_base()
 
@@ -45,24 +35,34 @@ class Snapshot(Base):
     churn = Column(Integer, default=0)
     hotspot_score = Column(Float, default=0.0)
     label = Column(Integer, nullable=True)
+    # Optional cached feature vector used for training
+    tmp_features = Column(JSON, nullable=True)
 
     commit = relationship("Commit", back_populates="snapshots")
     file = relationship("File", back_populates="snapshots")
 
-    __table_args__ = (
-        UniqueConstraint("commit_id", "file_id", name="uq_snapshot_commit_file"),
-        Index("ix_snapshot_commit", "commit_id"),
-        Index("ix_snapshot_file", "file_id"),
-    )
+
+_session_factory_cache: Dict[str, sessionmaker] = {}
 
 
-def get_engine(db_url: str | None = None):
+def _get_or_create_session_factory(db_url: str) -> sessionmaker:
+    global _session_factory_cache
+    if db_url not in _session_factory_cache:
+        engine = create_engine(db_url)
+        # Ensure tables exist once per engine
+        Base.metadata.create_all(engine)
+        _session_factory_cache[db_url] = sessionmaker(bind=engine)
+    return _session_factory_cache[db_url]
+
+
+def get_engine(db_url: Optional[str] = None):
     if not db_url:
         db_url = os.getenv("DATABASE_URL", "sqlite:///timewarp.db")
     return create_engine(db_url)
 
 
-def SessionLocal(db_url: str | None = None):
-    engine = get_engine(db_url)
-    Base.metadata.create_all(engine)
-    return sessionmaker(bind=engine)()
+def SessionLocal(db_url: Optional[str] = None):
+    if not db_url:
+        db_url = os.getenv("DATABASE_URL", "sqlite:///timewarp.db")
+    factory = _get_or_create_session_factory(db_url)
+    return factory()

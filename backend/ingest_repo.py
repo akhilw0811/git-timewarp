@@ -37,52 +37,43 @@ class RepoIngester:
                 self.session.commit()
                 total_commits += 1
 
-            # Traverse commit tree blobs and ensure File rows exist
-            for blob in commit.tree.traverse():
-                if blob.type == "blob":  # Only process files, not directories
-                    existing_file = (
-                        self.session.query(File).filter(File.path == blob.path).first()
-                    )
-                    if not existing_file:
-                        db_file = File(path=blob.path)
-                        self.session.add(db_file)
-                        self.session.commit()
+            # Only process files changed in this commit to avoid inflating snapshots
+            changed_paths = list(commit.stats.files.keys())
+            for path in changed_paths:
+                # Ensure File row exists
+                file = self.session.query(File).filter(File.path == path).first()
+                if not file:
+                    file = File(path=path)
+                    self.session.add(file)
+                    self.session.commit()
+                    file = self.session.query(File).filter(File.path == path).first()
 
-                    # Get the file ID (either existing or newly created)
-                    file = self.session.query(File).filter(File.path == blob.path).first()
+                # Calculate churn from git stats (insertions + deletions)
+                stats = commit.stats.files.get(path, {"insertions": 0, "deletions": 0})
+                churn = int(stats.get("insertions", 0)) + int(stats.get("deletions", 0))
 
-                    # Calculate churn from git stats
-                    churn = 0
-                    if blob.path in commit.stats.files:
-                        stats = commit.stats.files[blob.path]
-                        churn = stats["insertions"] + stats["deletions"]
+                # Compute features and predict hotspot score
+                features = compute_features(self.session, file.id, commit.committed_date, churn, path)
+                hotspot_score = predict(features)
 
-                    # Compute features
-                    features = compute_features(
-                        self.session, file.id, commit.committed_date, churn, blob.path
-                    )
+                # Determine label by looking ahead to next commit
+                label = 0
+                if i < len(commits) - 1:
+                    next_commit = commits[i + 1]
+                    if path in next_commit.stats.files:
+                        label = 1 if bugfix_commit(next_commit.message) else 0
 
-                    # Determine label by looking ahead to next commit
-                    label = 0
-                    if i < len(commits) - 1:
-                        next_commit = commits[i + 1]
-                        # Check if next commit touches this file
-                        if blob.path in next_commit.stats.files:
-                            label = 1 if bugfix_commit(next_commit.message) else 0
-
-                    # Calculate hotspot score using real ML model
-                    hotspot_score = predict(features)
-                    
-                    # Insert snapshot
-                    snapshot = Snapshot(
-                        commit_id=commit.hexsha,
-                        file_id=file.id,
-                        churn=churn,
-                        hotspot_score=hotspot_score,
-                        label=label,
-                    )
-                    self.session.add(snapshot)
-                    total_snapshots += 1
+                # Insert snapshot, including cached features for training
+                snapshot = Snapshot(
+                    commit_id=commit.hexsha,
+                    file_id=file.id,
+                    churn=churn,
+                    hotspot_score=hotspot_score,
+                    label=label,
+                    tmp_features=features,
+                )
+                self.session.add(snapshot)
+                total_snapshots += 1
 
             self.session.commit()
 

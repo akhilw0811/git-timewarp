@@ -5,7 +5,9 @@ from pathlib import Path
 from .train_hotspot import HotspotNet
 
 model = HotspotNet()
-model.load_state_dict(torch.load(Path(__file__).with_name("hotspot_model.pt")))
+# Load weights with CPU map to avoid CUDA dependency in local envs
+state = torch.load(Path(__file__).with_name("hotspot_model.pt"), map_location="cpu")
+model.load_state_dict(state)
 model.eval()
 
 def predict(features: list[float]) -> float:
